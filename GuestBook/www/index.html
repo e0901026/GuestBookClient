@@ -1,0 +1,291 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>ImageCup</title>
+<link rel="stylesheet" href="css/jquery.mobile-1.2.0.min.css" />
+
+<script type="text/javascript" charset="utf-8" src="cordova-2.1.0.js"></script>
+<script src="js/jquery-1.8.1.min.js"></script>
+<script src="js/jquery.mobile-1.2.0.min.js"></script>
+	<script src="js/iscroll.js"></script>
+<script src="js/index.js"></script>
+
+<style>
+ body { -webkit-touch-callout: none !important; }
+</style>
+
+<script type="text/javascript">
+
+app.initialize();
+rootURL="";
+var imagePath="";
+$(function(){
+
+    $(document).bind("mobileinit", function(){
+        $.mobile.touchOverflowEnabled = true;
+        });
+    
+
+    
+    $.mobile.defaultPageTransition = 'none';
+    $.mobile.buttonMarkup.hoverDelay = 0;
+	
+	rootURL=$('input#server').val();
+$('a#form_send').die('click').live('click',function(event){
+	event.preventDefault();
+    if(imagePath.trim()==="") {
+                                   takePicture();
+                                   
+                                   } else{                             
+    $.mobile.showPageLoadingMsg();
+	createNewGuest(imagePath);
+                                   }
+	return false;
+});
+  
+$('a#reset_form').die('click').live('click',function(event){
+        imagePath="";
+        $('input#publisher').val("");
+        $('input#description').val("");
+        var img = document.getElementById("preview_image");
+                                    img.style.display = "none";
+                                    
+                                    
+                                      });
+
+$('li#guestList').die('click').live('click', function(event){
+	$.mobile.changePage('#guest_list_page');
+	$('ul#guest_listview').html('');
+	$.ajax({
+			type:'POST',
+			contentType:'application/json',
+			url:rootURL+'/rest/GuestBookService/getAllGuests',
+			dataType:'json',
+			success:function(data,textStatus, jqXHR){
+					//alert(JSON.stringify(data));
+					$.each(data,function(i,item){
+						
+						$('ul#guest_listview').append('<li style="width:90%;"><a href="#"><img src="'+rootURL+'/img/'+item.imageName+'" style="width:80px; height:80px;"></img>'+convertMilsToTime(item.subject)+'<br/>'+item.publisher+'</a></li>').trigger('create');
+						
+						});
+					$('ul#guest_listview').listview("refresh");
+				
+					guest_list_scroller= new iScroll('guest_list_scroller', {sanp:true});
+				},
+			error:function(jqXHR, textStatus, erroThrown){
+				console.log("error:"+textStatus);
+				}
+	});
+
+});
+
+$('li#newGeustForm').die('click').live('click', function(event){
+
+	$.mobile.changePage('#new_guestInfo');
+});
+	
+});
+
+$('#guest_list_page').die('pageinit').live('pageinit',function(event){
+
+
+
+	
+});
+
+    function convertMilsToTime(mils){
+        
+        var date = new Date(mils);
+        return date.getDay()+"."+(date.getMonth()+1)+"."+date.getFullYear()+" "+date.getHours()+":"+date.getMinutes(); 
+    
+    }
+
+function updatePhoto(imageURI,rowIndex){
+	
+	//alert("rowIndex: " + rowIndex);
+	//PhotoSwipe.detatch(myPhotoSwipe);
+	var cameraImageId = 'camera_image_' + rowIndex;
+	var imageLinkId = 'image_link_' + rowIndex;
+    var img = document.getElementById(cameraImageId);
+    img.style.visibility = "visible";
+    img.style.display = "block";
+    img.src = imageURI;
+	
+	document.getElementById(imageLinkId).href = imageURI;
+    document.getElementById('camera_status').innerHTML = "Success";
+	
+	var options = {};
+	var id = 123;
+	
+	
+	//window.Code.PhotoSwipe.detatch(myPhotoSwipe);
+	//myPhotoSwipe = $("#" + imageLinkId).photoSwipe(options, id);
+	if (typeof myPhotoSwipe != "undefined" && myPhotoSwipe != null) {
+		window.Code.PhotoSwipe.unsetActivateInstance(myPhotoSwipe);
+		window.Code.PhotoSwipe.detatch(myPhotoSwipe);
+	}
+	
+	myPhotoSwipe = window.Code.PhotoSwipe.attach( window.document.querySelectorAll("#" + imageLinkId), options );
+//	myPhotoSwipe = $("#" + imageLinkId).photoSwipe(options, id);
+}
+
+
+function takePicture() {
+
+    navigator.camera.getPicture(
+		function(imageURI){
+			showImageOnTheWall(imageURI);
+		},
+        function(e) {
+            console.log("Error getting picture: " + e);
+            document.getElementById('camera_status').innerHTML = "Error getting picture.";
+        },
+        { quality: 50, destinationType: navigator.camera.DestinationType.FILE_URI});
+}
+
+function showImageOnTheWall(imageURI){
+	var img = document.getElementById("preview_image");
+	img.style.visibility = "visible";
+	img.style.display = "block";
+	img.src = imageURI;
+	imagePath=imageURI;
+}
+
+
+function createNewGuest(imageURI) {
+    var options = new FileUploadOptions();
+    options.fileKey="file";
+    options.fileName=imageURI.substr(imageURI.lastIndexOf('/')+1);
+    options.mimeType="image/jepg";
+    chunkedMode=false
+
+    var params = new Object();
+    params.value1 = "test";
+    params.value2 = "param";
+    options.chunkedMode = false;
+    options.params = params;
+
+    var ft = new FileTransfer();
+    ft.upload(imageURI, "http://app2.cc.puv.fi/GuestBookService/rest/fileupload", win, fail, options);
+    
+}
+
+
+function win(r) {
+    console.log("Code = " + r.responseCode);
+    console.log("Response = " + r.response);
+    console.log("Sent = " + r.bytesSent);
+    
+    var description=$('input#description').val();
+    var publisher= $('input#publisher').val();
+    
+    if(description.trim()===""){
+        description="no comment!";
+    }
+    if(publisher.trim()===""){
+        publisher="no publisher!";
+    }
+	//var subject =$('input#subject').val();
+	var imageName = r.response;
+	
+	 $.ajax({
+         type: 'POST',
+         contentType: 'application/json',
+         url: rootURL+"/rest/GuestBookService/createNewGuest",
+         data:'{"imageName" :"'+ imageName+'", "publisher":"'+publisher+'","subject":"'+new Date().getTime()+'","description":"'+description+'"}', // use string
+         dataType: "json",  
+         success: function(data, textStatus, jqXHR){
+        	 $.mobile.hidePageLoadingMsg();
+         },
+         error: function(jqXHR, textStatus, errorThrown){
+         console.log('error: ' + textStatus);
+         }
+         });
+
+    
+
+}
+
+function fail(error) {
+    alert("An error has occurred: Code = " + error.code);
+    $.mobile.hidePageLoadingMsg();
+}         
+</script>
+
+</head>
+
+<body>
+
+<div data-role="page" id="new_guestInfo">
+<div id="imagecup_header" data-role="header" data-theme="c"  data-position="fixed">
+	<h3>Guest Book</h3>
+</div>
+
+
+
+<div id="main_content" data-role="content">
+<div>
+<img id="preview_image" src="#" style="display:none; width:120px; height:120px; margin:auto" alt="preview"></img>
+</div>
+
+<div data-role="fieldcontain">
+	<label for="server">Server:</label>
+	<input type="text" name="server" id="server" value="http://app2.cc.puv.fi/GuestBookService" />
+
+
+	<label for="publisher">Publisher:</label>
+	<input type="text" name="publisher" id="publisher" value="" />
+
+	<label for="description">Comment:</label>
+	<input type="text" name="description" id="description" value=""/>
+</div>
+ 
+<a id="takePhoto" onclick="if (confirm('Do you want to take a new picture ?')) takePicture();" data-role="button" data-inline=true data-mini=true href="#">take photo</a>
+<a id="form_send" data-role="button" data-mini=true data-inline=true href="#"  data-icon="forward">Send</a>
+<a id="reset_form" data-role="button" data-mini=true data-inline=true href="#">Reset</a>
+
+</div>
+
+
+
+<div id="main_footer" data-role="footer" data-position="fixed">
+			<div data-role="navbar">
+                    <ul>
+                        <li id='newGeustForm'><a href="#">Guest Form</a></li>
+                        <li id='guestList'><a href="#">Guest List</a></li>
+                    </ul>
+                </div><!-- /navbar -->
+</div>
+</div>
+         
+         
+         
+         
+<div data-role="page" id="guest_list_page">
+<div id="guest_list_header" data-role="header">
+	<h3>Guest List</h3>
+</div>
+
+<div id="guest_list_content" data-role="content">
+ <div id="guest_list_scroller" style="position:absolute; z-index:1; width:100%; height:70%; ">
+  <ul id="guest_listview" data-role="listview" data-inset="true">
+  		
+  </ul>
+  </div>
+</div>
+
+<div id="main_footer" data-role="footer" data-position="fixed">
+			<div data-role="navbar">
+                    <ul>
+                        <li id='newGeustForm'><a href="#">Guest Form</a></li>
+                        <li id='guestList'><a href="#">Guest List</a></li>
+                    </ul>
+                </div><!-- /navbar -->
+</div>
+</div>                
+                
+                
+
+</body>
+</html>
